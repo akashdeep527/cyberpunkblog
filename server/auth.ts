@@ -5,11 +5,17 @@ import session from "express-session";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
-import { User } from "@shared/schema";
+import { User, InsertUser } from "@shared/schema";
 
+// This avoids redefining the User type which was causing a recursion error
 declare global {
   namespace Express {
-    interface User extends User {}
+    interface User {
+      id: number;
+      username: string;
+      password: string;
+      isAdmin: boolean;
+    }
   }
 }
 
@@ -22,13 +28,63 @@ async function hashPassword(password: string) {
 }
 
 async function comparePasswords(supplied: string, stored: string) {
-  const [hashed, salt] = stored.split(".");
-  const hashedBuf = Buffer.from(hashed, "hex");
-  const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
-  return timingSafeEqual(hashedBuf, suppliedBuf);
+  try {
+    // First, check if the stored password is in the correct format (contains a dot)
+    if (!stored.includes('.')) {
+      console.log('Stored password is not in the correct hashed format');
+      // If it's a plain text password (from initial setup), do a simple comparison
+      // This is a fallback for the first login after server setup
+      return supplied === stored;
+    }
+    
+    const [hashed, salt] = stored.split(".");
+    const hashedBuf = Buffer.from(hashed, "hex");
+    const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
+    return timingSafeEqual(hashedBuf, suppliedBuf);
+  } catch (error) {
+    console.error('Error comparing passwords:', error);
+    // In case of an error, return false to fail the login safely
+    return false;
+  }
 }
 
-export function setupAuth(app: Express) {
+// Ensure admin user exists with proper credentials
+export async function ensureAdminUser() {
+  try {
+    // Check if admin user exists
+    const adminUser = await storage.getUserByUsername("admin");
+    
+    if (!adminUser) {
+      // Create admin user with hashed password
+      console.log("Creating admin user...");
+      const hashedPassword = await hashPassword("admin");
+      await storage.createUser({
+        username: "admin",
+        password: hashedPassword,
+        isAdmin: true
+      });
+      console.log("Admin user created successfully");
+    } else {
+      // If admin exists but password isn't hashed (doesn't contain a dot)
+      if (!adminUser.password.includes('.')) {
+        console.log("Fixing admin password hash...");
+        const hashedPassword = await hashPassword("admin");
+        
+        // We don't have an updateUser method, so we'll hack it by directly modifying the map
+        // This is not ideal but necessary given the current implementation
+        adminUser.password = hashedPassword;
+        console.log("Admin password fixed");
+      }
+    }
+  } catch (error) {
+    console.error("Error ensuring admin user exists:", error);
+  }
+}
+
+export async function setupAuth(app: Express) {
+  // Ensure admin user with proper credentials exists
+  await ensureAdminUser();
+  
   const sessionSettings: session.SessionOptions = {
     secret: process.env.SESSION_SECRET || "neonpulse-cyberpunk-blog-secret",
     resave: false,
@@ -47,13 +103,26 @@ export function setupAuth(app: Express) {
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
+        console.log(`Login attempt for username: ${username}`);
         const user = await storage.getUserByUsername(username);
-        if (!user || !(await comparePasswords(password, user.password))) {
+        
+        if (!user) {
+          console.log(`User not found: ${username}`);
+          return done(null, false);
+        }
+        
+        console.log(`User found, comparing passwords. Password format: ${user.password.includes('.') ? 'hashed' : 'plaintext'}`);
+        const passwordMatches = await comparePasswords(password, user.password);
+        
+        if (!passwordMatches) {
+          console.log('Password verification failed');
           return done(null, false);
         } else {
+          console.log('Login successful');
           return done(null, user);
         }
       } catch (err) {
+        console.error('Login error:', err);
         return done(err);
       }
     }),

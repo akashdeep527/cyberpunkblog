@@ -1,6 +1,6 @@
 import { useState, ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "../../hooks/use-auth";
 import { 
   LayoutDashboard, 
   FileText, 
@@ -17,10 +17,10 @@ import {
   Search, 
   Plus 
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { cn } from "@/lib/utils";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar";
+import { cn } from "../../lib/utils";
 
 interface AdminLayoutProps {
   children: ReactNode;

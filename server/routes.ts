@@ -16,7 +16,7 @@ import { format } from "date-fns";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication routes
-  setupAuth(app);
+  await setupAuth(app);
   
   const httpServer = createServer(app);
   
@@ -62,6 +62,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(posts);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch posts" });
+    }
+  });
+  
+  // Get all post-category relationships
+  app.get("/api/post-categories", async (req, res) => {
+    try {
+      const postCategories = await storage.getAllPostCategories();
+      res.json(postCategories);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch post-category relationships" });
     }
   });
   

@@ -46,6 +46,9 @@ export interface IStorage {
   addCategoryToPost(postCategory: InsertPostCategory): Promise<PostCategory>;
   removeCategoryFromPost(postId: number, categoryId: number): Promise<boolean>;
   getCategoriesByPost(postId: number): Promise<Category[]>;
+  createPostCategory(data: InsertPostCategory): Promise<PostCategory>;
+  getAllPostCategories(): Promise<PostCategory[]>;
+  deletePostCategory(postId: number, categoryId: number): Promise<boolean>;
   
   // Post-Tag relationship methods
   addTagToPost(postTag: InsertPostTag): Promise<PostTag>;
@@ -133,12 +136,7 @@ export class MemStorage implements IStorage {
       updatedAt: new Date()
     };
     
-    // Create initial admin user
-    this.createUser({
-      username: "admin",
-      password: "admin",
-      isAdmin: true
-    });
+    // Admin user is now created with proper password hashing in auth.ts
     
     // Create some initial categories
     this.createCategory({ name: "Cyberpunk", slug: "cyberpunk" });
@@ -177,6 +175,12 @@ export class MemStorage implements IStorage {
       code: "<script>console.log('Footer Ad');</script>",
       enabled: false,
       position: "footer"
+    });
+
+    // Properly seed post-category relationships
+    this.createPostCategory({
+      postId: 1,
+      categoryId: 2 // Technology category
     });
   }
 
@@ -341,6 +345,26 @@ export class MemStorage implements IStorage {
     
     return Array.from(this.categories.values())
       .filter(category => categoryIds.includes(category.id));
+  }
+
+  async createPostCategory(data: InsertPostCategory): Promise<PostCategory> {
+    const id = this.postCategoryCounter++;
+    const newPostCategory = { id, ...data };
+    this.postCategories.set(id, newPostCategory);
+    return newPostCategory;
+  }
+  
+  async getAllPostCategories(): Promise<PostCategory[]> {
+    return Array.from(this.postCategories.values());
+  }
+
+  async deletePostCategory(postId: number, categoryId: number): Promise<boolean> {
+    const entry = Array.from(this.postCategories.entries()).find(
+      ([_, pc]) => pc.postId === postId && pc.categoryId === categoryId
+    );
+    
+    if (!entry) return false;
+    return this.postCategories.delete(entry[0]);
   }
 
   // Post-Tag relationship methods

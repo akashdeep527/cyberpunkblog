@@ -21,13 +21,13 @@ import { Loader2, User, Key, LogIn, UserPlus } from "lucide-react";
 // Extended schema with validation
 const loginSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  password: z.string().min(5, "Password must be at least 5 characters"),
 });
 
 const registerSchema = insertUserSchema.extend({
   username: z.string().min(3, "Username must be at least 3 characters"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-  confirmPassword: z.string().min(6, "Password must be at least 6 characters"),
+  password: z.string().min(5, "Password must be at least 5 characters"),
+  confirmPassword: z.string().min(5, "Password must be at least 5 characters"),
 }).refine(data => data.password === data.confirmPassword, {
   message: "Passwords do not match",
   path: ["confirmPassword"],
@@ -63,6 +63,7 @@ export default function AuthPage() {
   
   // Handle login submission
   const onLoginSubmit = (data: LoginFormValues) => {
+    console.log("Login form submitted:", data.username);
     loginMutation.mutate(data);
   };
   
@@ -73,12 +74,18 @@ export default function AuthPage() {
     registerMutation.mutate(registerData);
   };
   
-  // Redirect if already logged in
+  // Store current admin path when navigating to auth page
   useEffect(() => {
-    if (user) {
-      navigate("/admin");
+    // Only run this on first render
+    const currentPath = window.location.pathname;
+    const searchParams = new URLSearchParams(window.location.search);
+    const fromAdmin = searchParams.get('redirect') === 'true';
+    
+    if (currentPath.startsWith('/admin') || fromAdmin) {
+      console.log("Storing last admin page:", currentPath);
+      sessionStorage.setItem('lastAdminPage', currentPath);
     }
-  }, [user, navigate]);
+  }, []);
   
   return (
     <div className="min-h-screen bg-darkBg text-cyberText">
@@ -90,13 +97,11 @@ export default function AuthPage() {
             {/* Auth Forms Column */}
             <div className="md:w-1/2 flex flex-col justify-center">
               <div className="max-w-md mx-auto mb-8 md:mb-0">
-                <Link href="/">
-                  <a className="font-orbitron font-bold text-2xl text-neonPink flex items-center mb-8">
-                    <div className="w-8 h-8 mr-2 flex items-center justify-center">
-                      <div className="w-6 h-6 bg-neonPink rotate-45"></div>
-                    </div>
-                    <span className="glitch-hover">NeonPulse</span>
-                  </a>
+                <Link href="/" className="font-orbitron font-bold text-2xl text-neonPink flex items-center mb-8">
+                  <div className="w-8 h-8 mr-2 flex items-center justify-center">
+                    <div className="w-6 h-6 bg-neonPink rotate-45"></div>
+                  </div>
+                  <span className="glitch-hover">NeonPulse</span>
                 </Link>
                 
                 <CyberBorder className="rounded-lg bg-darkerBg p-6">
@@ -299,10 +304,8 @@ export default function AuthPage() {
                 </CyberBorder>
                 
                 <div className="mt-6 text-center">
-                  <Link href="/">
-                    <a className="text-mutedText hover:text-neonBlue transition-colors text-sm">
-                      ← Back to Blog
-                    </a>
+                  <Link href="/" className="text-mutedText hover:text-neonBlue transition-colors text-sm">
+                    ← Back to Blog
                   </Link>
                 </div>
               </div>
@@ -355,23 +358,24 @@ export default function AuthPage() {
 // Cyber Border Component
 function CyberBorder({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`cyber-border ${className || ""}`}>
-      <style jsx>{`
-        .cyber-border {
-          position: relative;
-          border: 1px solid transparent;
-          background-clip: padding-box;
-        }
-        
-        .cyber-border::after {
-          content: '';
-          position: absolute;
-          top: -2px; right: -2px; bottom: -2px; left: -2px;
-          background: linear-gradient(45deg, #ff2a6d, #05d9e8, #9d4edd);
-          z-index: -1;
-          border-radius: inherit;
-        }
-      `}</style>
+    <div 
+      className={`relative border border-transparent bg-clip-padding ${className || ""}`}
+      style={{
+        position: 'relative',
+        backgroundClip: 'padding-box'
+      }}
+    >
+      <div 
+        className="absolute inset-0 -z-10 rounded-inherit"
+        style={{
+          background: 'linear-gradient(45deg, #ff2a6d, #05d9e8, #9d4edd)',
+          top: '-2px',
+          right: '-2px',
+          bottom: '-2px',
+          left: '-2px',
+          borderRadius: 'inherit'
+        }}
+      />
       {children}
     </div>
   );
